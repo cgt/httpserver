@@ -11,6 +11,17 @@ namespace HttpServer
 {
     class HttpServer
     {
+        private readonly string _rootPath;
+
+        public HttpServer(string rootPath)
+        {
+            if (rootPath == null)
+            {
+                throw new ArgumentNullException(nameof(rootPath));
+            }
+            _rootPath = rootPath;
+        }
+
         public async Task StartAsync(IPAddress addr = null, int port = 8080)
         {
             addr = addr ?? IPAddress.Any;
@@ -43,15 +54,29 @@ namespace HttpServer
                     var request = await ReadHttpRequestAsync(r);
                     Console.WriteLine("Method: {0} :: URI: {1} :: Version: {2}", request.Method, request.RequestUri, request.Version);
 
-                    using (var f = new FileStream(@"C:\Users\Chris\Documents\public\foo.txt", FileMode.Open))
+                    var filePath = Path.Combine(_rootPath, request.RequestUri.TrimStart('/')); // DANGEROUS
+                    Console.WriteLine(filePath);
+                    try
                     {
-                        await w.WriteAsync("HTTP/1.0 200 OK\r\n");
-                        await w.WriteAsync("Content-Type: text/plain\r\n");
-                        await w.WriteAsync($"Content-Length: {f.Length}\r\n");
-                        await w.WriteAsync("\r\n");
-                        await w.FlushAsync();
-                        await f.CopyToAsync(stream);
-                        await stream.FlushAsync();
+                        using (var f = new FileStream(filePath, FileMode.Open))
+                        {
+                            await w.WriteAsync("HTTP/1.0 200 OK\r\n");
+                            await w.WriteAsync("Content-Type: text/plain\r\n");
+                            await w.WriteAsync($"Content-Length: {f.Length}\r\n");
+                            await w.WriteAsync("\r\n");
+                            await w.FlushAsync();
+                            await f.CopyToAsync(stream);
+                            await stream.FlushAsync();
+                        }
+                    }
+                    catch (FileNotFoundException)
+                    {
+                        await WriteSimpleResponse(w, 404, "Not Found");
+                    }
+                    catch
+                    {
+                        await WriteSimpleResponse(w, 500, "Internal Server Error");
+                        throw;
                     }
                 }
             }
@@ -96,6 +121,27 @@ namespace HttpServer
             }
 
             return req;
+        }
+
+        private async Task WriteSimpleResponse(StreamWriter w, int status, string msg)
+        {
+            if (w == null)
+            {
+                throw new ArgumentNullException(nameof(w));
+            }
+            if (msg == null)
+            {
+                throw new ArgumentNullException(nameof(msg));
+            }
+
+            var body = $"{status} {msg}\r\n";
+            await w.WriteAsync($"HTTP/1.0 {status} {msg}\r\n");
+            await w.WriteAsync("Content-Type: text/plain\r\n");
+            await w.WriteAsync($"Content-Length: {body.Length}\r\n");
+            await w.WriteAsync("\r\n");
+            await w.WriteAsync(body);
+            await w.WriteAsync("\r\n");
+            await w.FlushAsync();
         }
     }
 }

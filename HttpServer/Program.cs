@@ -10,7 +10,7 @@ namespace HttpServer
     {
         static void Main(string[] args)
         {
-            var server = new HttpServer();
+            var server = new HttpServer(@"C:\Users\Chris\Documents\public");
             server.StartAsync().Wait();
         }
     }
