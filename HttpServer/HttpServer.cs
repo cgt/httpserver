@@ -43,10 +43,9 @@ namespace HttpServer
                     var request = await ReadHttpRequestAsync(r);
                     Console.WriteLine("Method: {0} :: URI: {1} :: Version: {2}", request.Method, request.RequestUri, request.Version);
 
-                    await w.WriteAsync("HTTP/1.0 200 OK\r\n");
-
                     if (request.Headers.Count > 0)
                     {
+                        await w.WriteAsync("HTTP/1.0 200 OK\r\n");
                         var body = new StringBuilder();
                         body.Append("Headers:\r\n");
                         foreach (var hdr in request.Headers)
@@ -61,7 +60,7 @@ namespace HttpServer
                     }
                     else
                     {
-                        throw new NotImplementedException();
+                        await w.WriteAsync("HTTP/1.0 201 No Content\r\n");
                     }
 
                     await w.FlushAsync();
