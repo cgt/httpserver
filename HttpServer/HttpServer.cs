@@ -5,6 +5,7 @@ using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace HttpServer
@@ -18,18 +19,50 @@ namespace HttpServer
             _rootPath = rootPath ?? throw new ArgumentNullException(nameof(rootPath));
         }
 
+        private int _clientCount;
+
         public async Task StartAsync(IPAddress addr = null, int port = 8080)
         {
             addr = addr ?? IPAddress.Any;
+
+            var shutdownRequested = new TaskCompletionSource<bool>();
+            var shutdownListener = new ShutdownListener();
+            shutdownListener.ShutdownRequested += (s, e) => shutdownRequested.SetResult(true);
+            _ = shutdownListener.StartAsync()
+                .ContinueWith(t => Console.WriteLine(t.Exception), TaskContinuationOptions.OnlyOnFaulted);
 
             var listener = new TcpListener(addr, port);
             listener.Start();
 
             while (true)
             {
-                var client = await listener.AcceptTcpClientAsync();
-                var _ = HandleClient(client) // assign to _ to suppress warning about not awaiting task
+                var clientTask = listener.AcceptTcpClientAsync();
+                var task = await Task.WhenAny(clientTask, shutdownRequested.Task);
+                if (task == clientTask)
+                {
+                    _ = HandleClient(clientTask.Result) // assign to _ to suppress warning about not awaiting task
                     .ContinueWith(t => Console.WriteLine(t.Exception), TaskContinuationOptions.OnlyOnFaulted);
+                }
+                else if (task == shutdownRequested.Task)
+                {
+                    listener.Stop(); // Stop accepting new clients
+
+                    if (_clientCount < 0) throw new InvalidOperationException($"{nameof(_clientCount)} less than 0");
+
+                    while (_clientCount > 0)
+                    {
+                        await Task.Delay(100);
+                    }
+
+                    if (_clientCount < 0) throw new InvalidOperationException($"{nameof(_clientCount)} less than 0");
+
+                    Console.WriteLine("Graceful shutdown");
+                    return;
+                }
+                else
+                {
+                    throw new InvalidOperationException();
+                }
             }
         }
 
@@ -42,6 +75,8 @@ namespace HttpServer
 
             try
             {
+                Interlocked.Increment(ref _clientCount);
+
                 using (client)
                 using (var stream = client.GetStream())
                 using (var r = new StreamReader(stream))
@@ -79,6 +114,10 @@ namespace HttpServer
             catch (Exception ex)
             {
                 Console.WriteLine($"ClientHandler exception: {ex.Message}");
+            }
+            finally
+            {
+                Interlocked.Decrement(ref _clientCount);
             }
         }
 
