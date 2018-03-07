@@ -21,7 +21,8 @@ namespace HttpServer
             while (true)
             {
                 var client = await listener.AcceptTcpClientAsync();
-                _ = HandleClient(client); // ignore warning, let it run async
+                var _ = HandleClient(client) // assign to _ to suppress warning about not awaiting task
+                    .ContinueWith(t => Console.WriteLine(t.Exception), TaskContinuationOptions.OnlyOnFaulted);
             }
         }
 
