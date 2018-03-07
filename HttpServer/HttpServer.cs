@@ -15,11 +15,7 @@ namespace HttpServer
 
         public HttpServer(string rootPath)
         {
-            if (rootPath == null)
-            {
-                throw new ArgumentNullException(nameof(rootPath));
-            }
-            _rootPath = rootPath;
+            _rootPath = rootPath ?? throw new ArgumentNullException(nameof(rootPath));
         }
 
         public async Task StartAsync(IPAddress addr = null, int port = 8080)
