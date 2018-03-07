@@ -43,27 +43,16 @@ namespace HttpServer
                     var request = await ReadHttpRequestAsync(r);
                     Console.WriteLine("Method: {0} :: URI: {1} :: Version: {2}", request.Method, request.RequestUri, request.Version);
 
-                    if (request.Headers.Count > 0)
+                    using (var f = new FileStream(@"C:\Users\Chris\Documents\public\foo.txt", FileMode.Open))
                     {
                         await w.WriteAsync("HTTP/1.0 200 OK\r\n");
-                        var body = new StringBuilder();
-                        body.Append("Headers:\r\n");
-                        foreach (var hdr in request.Headers)
-                        {
-                            body.Append($"{hdr.Key}:\t{hdr.Value}\r\n");
-                        }
-
                         await w.WriteAsync("Content-Type: text/plain\r\n");
-                        await w.WriteAsync($"Content-Length: {body.Length}\r\n");
+                        await w.WriteAsync($"Content-Length: {f.Length}\r\n");
                         await w.WriteAsync("\r\n");
-                        await w.WriteAsync(body.ToString());
+                        await w.FlushAsync();
+                        await f.CopyToAsync(stream);
+                        await stream.FlushAsync();
                     }
-                    else
-                    {
-                        await w.WriteAsync("HTTP/1.0 201 No Content\r\n");
-                    }
-
-                    await w.FlushAsync();
                 }
             }
             catch (Exception ex)
