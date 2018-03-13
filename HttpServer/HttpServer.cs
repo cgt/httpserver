@@ -89,7 +89,7 @@ namespace HttpServer
                     Console.WriteLine(filePath);
                     try
                     {
-                        using (var f = new FileStream(filePath, FileMode.Open))
+                        using (var f = new FileStream(filePath, FileMode.Open, FileAccess.Read))
                         {
                             await w.WriteAsync("HTTP/1.0 200 OK\r\n");
                             await w.WriteAsync("Content-Type: text/plain\r\n");
